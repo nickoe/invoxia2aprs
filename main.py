@@ -2,6 +2,8 @@
 import datetime
 import logging
 import math
+import random
+import time
 import unittest
 from typing import List, Optional
 import aprslib
@@ -46,7 +48,6 @@ class MyTracker:
         log.info(f"\t{now} is now")
         log.info(f"\t{location.datetime} which was {difftime} ago")
         log.info(f"\t{location.lat} {location.lng}")
-        #return (location.lat, location.lng, location.datetime, tracker.tracker_status.battery)
         return location, tracker
 
 
@@ -116,14 +117,19 @@ class MyAPRS:
     def broadcast(self):
         self.AIS.connect()
         self.AIS.sendall(self.posreport)
+        self.AIS.close()
 
 
 class SuperClass:
     def __init__(self):
         self.tracker: Optional[gps_tracker.Tracker] = None
         self.location: Optional[gps_tracker.TrackerData] = None
-        self.fetch_data()
-        self.broadcast_data()
+        try:
+            self.fetch_data()
+            self.broadcast_data()
+        except:
+            log.info("Expcetions on first runthrough, but continuing...")
+        self.schedule()
 
     def fetch_data(self):
         trk_cls = MyTracker()
@@ -134,6 +140,21 @@ class SuperClass:
         aprs_cls.create_position_msg(self.location, self.tracker)
         aprs_cls.broadcast()
 
+    def schedule(self):
+        log.info("Running on a schedule...")
+        jitter = 10
+        waittime = 60 * 5
+        try:
+            while True:
+                slt = random.randint(waittime, waittime+jitter)
+                log.debug(f"Sleep time: {slt}")
+                time.sleep(slt)
+                self.fetch_data()
+                self.broadcast_data()
+        except KeyboardInterrupt:
+            pass
+            print("\n")
+            log.info("Exiting.")
 
 if __name__ == '__main__':
     #unittest.main()
