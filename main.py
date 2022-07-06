@@ -28,7 +28,7 @@ class MyTracker():
         trackers: List[gps_tracker.Tracker] = client.get_devices(kind="tracker")
         tracker: gps_tracker.Tracker = trackers[0]
         # location = client.get_locations(tracker, not_before=datetime.datetime.now() - datetime.timedelta(minutes=15), max_count=1)
-        location = client.get_locations(tracker, max_count=1)[0]
+        location = client.get_locations(tracker, max_count=1)[0]  # TODO: Assumes we only have on tracker
         now = datetime.datetime.now(datetime.timezone.utc)
         difftime = now - location.datetime.replace()
         print(f"\t{tracker.tracker_status.battery} % battery")
@@ -51,11 +51,17 @@ class MyAPRS():
         #self.IS = aprslib.IS("N0CALL")
 
     def deg_to_dms(self, deg, type='lat'):
+        """
+        Converts signed decimal degrees to degree-minutes-hundredths compatible with the APRS spec ddmmhh notation.
+        :param deg:
+        :param type:
+        :return:
+        """
         decimals, number = math.modf(deg)
         d = int(number)
         m = int(decimals * 60)
         s = (deg - d - m / 60) * 3600.00
-        #hundreth of minutes
+        #hundredths of minutes
         h = ( s / 60 * 100)
         compass = {
             'lat': ('N','S'),
