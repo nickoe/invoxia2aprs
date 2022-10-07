@@ -5,7 +5,7 @@ import math
 import random
 import time
 import unittest
-from typing import List, Optional
+from typing import List, Optional, Union
 import aprslib
 
 import gps_tracker
@@ -30,6 +30,17 @@ class MyTestCase(unittest.TestCase):
         # Some TrackerIcon not in the conversion list, i.e. fallback APRS icon
         self.assertEqual(instance.icon_detect(TrackerIcon.WOMAN), ('/', ':'))
 
+    def test_create_position_msg(self):
+        instance = MyAPRS()
+        location = gps_tracker.TrackerData
+        location.lat = 12.0
+        location.lng = 34.0
+        location.datetime = datetime.datetime.strptime("21:05:19", "%H:%M:%S")
+        tracker = gps_tracker.Tracker
+        tracker.tracker_config = gps_tracker.Tracker.tracker_config
+        tracker.tracker_config.icon = TrackerIcon.GIRL
+        instance.create_position_msg(location, tracker)
+
 class MyTracker:
     def __init__(self):
         self.username = secrets.username
@@ -41,14 +52,20 @@ class MyTracker:
         trackers: List[gps_tracker.Tracker] = client.get_devices(kind="tracker")
         tracker: gps_tracker.Tracker = trackers[0]
         # location = client.get_locations(tracker, not_before=datetime.datetime.now() - datetime.timedelta(minutes=15), max_count=1)
-        location = client.get_locations(tracker, max_count=1)[0]  # TODO: Assumes we only have one tracker
+        locations = client.get_locations(tracker, max_count=2)  # TODO: Assumes we only have one tracker
+        if len(locations) >= 2:
+            timebetween = locations[0].datetime-locations[1].datetime
+        else:
+            timebetween = "unknown"
+        print(f"timebetween {timebetween}")
+        location =locations[0]
         now = datetime.datetime.now(datetime.timezone.utc)
         difftime = now - location.datetime.replace()
         log.info(f"\t{tracker.tracker_status.battery} % battery")
         log.info(f"\t{now} is now")
         log.info(f"\t{location.datetime} which was {difftime} ago")
         log.info(f"\t{location.lat} {location.lng}")
-        return location, tracker
+        return location, tracker, timebetween
 
 
 class MyAPRS:
@@ -100,7 +117,7 @@ class MyAPRS:
             # Fallback icon
             return '/', ':'
 
-    def create_position_msg(self, location: gps_tracker.TrackerData, tracker: gps_tracker.Tracker, msg: str = 'Sigfox tracker (TESTING)'):
+    def create_position_msg(self, location: gps_tracker.TrackerData, tracker: gps_tracker.Tracker, timebetween: Union[datetime.time, str], msg: str = 'Sigfox tracker (TESTING)'):
         """
         This takes location and tracker information to generate an appropriate position message.
         """
@@ -109,7 +126,8 @@ class MyAPRS:
         hhmmss = datetime.datetime.strftime(dt, "%H%M%S")
         primary, alternate = self.icon_detect(tracker.tracker_config.icon)
         batpct = tracker.tracker_status.battery
-        self.posreport = f"{self.callsign}>APRS,TCPIP*:/{hhmmss}h{dmhpos[0]}{primary}{dmhpos[1]}{alternate}{msg} [Battery: {batpct}%]"
+        trackermethod = location.method.name
+        self.posreport = f"{self.callsign}>APRS,TCPIP*:/{hhmmss}h{dmhpos[0]}{primary}{dmhpos[1]}{alternate}{msg} [Battery: {batpct}%, Method: {trackermethod}, Time between: {timebetween}]"
 
         log.debug(self.posreport)
         log.debug(aprslib.parse(self.posreport))
@@ -124,6 +142,7 @@ class SuperClass:
     def __init__(self):
         self.tracker: Optional[gps_tracker.Tracker] = None
         self.location: Optional[gps_tracker.TrackerData] = None
+        self.timebetween: Union[datetime.time, str] = "undefined"
         try:
             self.fetch_data()
             self.broadcast_data()
@@ -133,29 +152,23 @@ class SuperClass:
 
     def fetch_data(self):
         trk_cls = MyTracker()
-        self.location, self.tracker = trk_cls.get_something()
+        self.location, self.tracker, self.timebetween = trk_cls.get_something()
 
     def broadcast_data(self):
         aprs_cls = MyAPRS()
-        aprs_cls.create_position_msg(self.location, self.tracker)
+        aprs_cls.create_position_msg(self.location, self.tracker, self.timebetween)
         aprs_cls.broadcast()
 
     def schedule(self):
         log.info("Running on a schedule...")
         jitter = 10
         waittime = 60 * 5
-        try:
-            while True:
-                slt = random.randint(waittime, waittime+jitter)
-                log.debug(f"Sleep time: {slt}")
-                time.sleep(slt)
-                self.fetch_data()
-                self.broadcast_data()
-        except KeyboardInterrupt:
-            pass
-            print("\n")
-            log.info("Exiting.")
-
+        while True:
+            slt = random.randint(waittime, waittime+jitter)
+            log.debug(f"Sleep time: {slt}")
+            time.sleep(slt)
+            self.fetch_data()
+            self.broadcast_data()
 if __name__ == '__main__':
     #unittest.main()
     SuperClass()
