@@ -118,7 +118,7 @@ class MyAPRS:
             # Fallback icon
             return '/', ':'
 
-    def create_position_msg(self, location: gps_tracker.TrackerData, tracker: gps_tracker.Tracker, timebetween: Union[datetime.time, str], msg: str = 'Sigfox tracker (TESTING)'):
+    def create_position_msg(self, location: gps_tracker.TrackerData, tracker: gps_tracker.Tracker, timebetween: Union[datetime.time, str], msg: str = 'Sigfox tracker'):
         """
         This takes location and tracker information to generate an appropriate position message.
         """
