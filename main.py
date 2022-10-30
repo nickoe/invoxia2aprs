@@ -53,11 +53,12 @@ class MyTracker:
         tracker: gps_tracker.Tracker = trackers[0]
         # location = client.get_locations(tracker, not_before=datetime.datetime.now() - datetime.timedelta(minutes=15), max_count=1)
         locations = client.get_locations(tracker, max_count=2)  # TODO: Assumes we only have one tracker
+        log.debug(f'locations: {locations}')
         if len(locations) >= 2:
             timebetween = locations[0].datetime-locations[1].datetime
         else:
             timebetween = "unknown"
-        print(f"timebetween {timebetween}")
+        log.debug(f"timebetween {timebetween}")
         location =locations[0]
         now = datetime.datetime.now(datetime.timezone.utc)
         difftime = now - location.datetime.replace()
@@ -146,8 +147,9 @@ class SuperClass:
         try:
             self.fetch_data()
             self.broadcast_data()
-        except:
+        except Exception as e:
             log.info("Expcetions on first runthrough, but continuing...")
+            log.error(e)
         self.schedule()
 
     def fetch_data(self):
